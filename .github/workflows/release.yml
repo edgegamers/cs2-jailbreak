@@ -16,13 +16,16 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --configuration Debug
+        run: dotnet publish --configuration Debug
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v2
         with:
           name: net7.0-artifacts
-          path: bin/Debug/net7.0/*
+          path: |
+            bin/Debug/net7.0/publish/**/*.json
+            bin/Debug/net7.0/publish/**/*.dll
+            bin/Debug/net7.0/publish/**/*.pdb
 
   release:
     needs: build
