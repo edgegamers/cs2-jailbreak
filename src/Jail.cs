@@ -207,48 +207,48 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
     void register_commands()
     {
         // reg warden comamnds
-        AddCommand("w", "take warden", warden.take_warden_cmd);
-        AddCommand("uw", "leave warden", warden.leave_warden_cmd);
-        AddCommand("rw", "remove warden", warden.remove_warden_cmd);
+        AddCommand("css_w", "take warden", warden.take_warden_cmd);
+        AddCommand("css_uw", "leave warden", warden.leave_warden_cmd);
+        AddCommand("css_rw", "remove warden", warden.remove_warden_cmd);
 
-        AddCommand("wub","warden : disable block",warden.wub_cmd);
-        AddCommand("wb","warden : enable block",warden.wb_cmd);
+        AddCommand("css_wub","warden : disable block",warden.wub_cmd);
+        AddCommand("css_wb","warden : enable block",warden.wb_cmd);
 
-        AddCommand("swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
+        AddCommand("css_swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
 
-        AddCommand("wd","warden : start warday",warden.warday_cmd);
-        AddCommand("wcommands", "warden : show all commands",warden.cmd_info);
+        AddCommand("css_wd","warden : start warday",warden.warday_cmd);
+        AddCommand("css_wcommands", "warden : show all commands",warden.cmd_info);
 
-        AddCommand("guns","give ct guns",warden.cmd_ct_guns);
+        AddCommand("css_guns","give ct guns",warden.cmd_ct_guns);
 
-        AddCommand("force_open","force open every door and vent",warden.force_open_cmd);
-        AddCommand("force_close","force close every door",warden.force_close_cmd);
+        AddCommand("css_force_open","force open every door and vent",warden.force_open_cmd);
+        AddCommand("css_force_close","force close every door",warden.force_close_cmd);
 
         // reg lr commands
-        AddCommand("lr","start an lr",lr.lr_cmd);
-        AddCommand("cancel_lr","admin : cancel lr",lr.cancel_lr_cmd);
-        AddCommand("lr_stats","list lr stats",lr.lr_stats.lr_stats_cmd);
+        AddCommand("css_lr","start an lr",lr.lr_cmd);
+        AddCommand("css_cancel_lr","admin : cancel lr",lr.cancel_lr_cmd);
+        AddCommand("css_lr_stats","list lr stats",lr.lr_stats.lr_stats_cmd);
 
         // reg sd commands
-        AddCommand("sd","start a sd",sd.sd_cmd);
-        AddCommand("sd_ff","start a ff sd",sd.sd_ff_cmd);
-        AddCommand("cancel_sd","cancel an sd",sd.cancel_sd_cmd);
+        AddCommand("css_sd","start a sd",sd.sd_cmd);
+        AddCommand("css_sd_ff","start a ff sd",sd.sd_ff_cmd);
+        AddCommand("css_cancel_sd","cancel an sd",sd.cancel_sd_cmd);
 
         AddCommandListener("jointeam",join_team);
 
         // debug 
         if(Debug.enable)
         {
-            AddCommand("nuke","debug : kill every player",Debug.nuke);
-            AddCommand("is_rebel","debug : print rebel state to console",warden.is_rebel_cmd);
-            AddCommand("lr_debug","debug : start an lr without restriction",lr.lr_debug_cmd);
-            AddCommand("is_blocked","debug : print block state",warden.block.is_blocked);
-            AddCommand("test_laser","test laser",Debug.test_laser);
-            AddCommand("test_strip","test weapon strip",Debug.test_strip_cmd);
-            AddCommand("join_ct_debug","debug : force join ct",Debug.join_ct_cmd);
-            AddCommand("hide_weapon_debug","debug : hide player weapon on back",Debug.hide_weapon_cmd);
-            AddCommand("rig","debug : force player to boss on sd",sd.sd_rig_cmd);
-            AddCommand("is_muted","debug : print voice flags",Debug.is_muted_cmd);
+            AddCommand("css_nuke","debug : kill every player",Debug.nuke);
+            AddCommand("css_is_rebel","debug : print rebel state to console",warden.is_rebel_cmd);
+            AddCommand("css_lr_debug","debug : start an lr without restriction",lr.lr_debug_cmd);
+            AddCommand("css_is_blocked","debug : print block state",warden.block.is_blocked);
+            AddCommand("css_test_laser","test laser",Debug.test_laser);
+            AddCommand("css_test_strip","test weapon strip",Debug.test_strip_cmd);
+            AddCommand("css_join_ct_debug","debug : force join ct",Debug.join_ct_cmd);
+            AddCommand("css_hide_weapon_debug","debug : hide player weapon on back",Debug.hide_weapon_cmd);
+            AddCommand("css_rig","debug : force player to boss on sd",sd.sd_rig_cmd);
+            AddCommand("css_is_muted","debug : print voice flags",Debug.is_muted_cmd);
         }
     }
 
