@@ -332,7 +332,13 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
 
+        AddCommandListener("player_ping", CommandListener_RadioCommand);
+
         // TODO: need to hook weapon drop
+    }
+
+    HookResult CommandListener_RadioCommand(CCSPlayerController? player, CommandInfo info) {
+        return HookResult.Stop;
     }
 
     HookResult OnPlayerPing(EventPlayerPing  @event, GameEventInfo inf)
