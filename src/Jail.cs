@@ -344,7 +344,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
             warden.ping(player,@event.X,@event.Y,@event.Z);
         }
 
-        return HookResult.Continue;
+        return HookResult.Handled;
     }
 
     void OnClientVoice(int slot)
