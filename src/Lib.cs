@@ -322,6 +322,7 @@ public static class Lib
         if(pawn != null && player.is_valid_alive())
         {
             pawn.RenderMode = RenderMode_t.kRenderTransColor;
+            colour = Color.FromArgb(pawn.Render.A,colour.R,colour.G,colour.B);
             pawn.Render = colour;
             Utilities.SetStateChanged(pawn,"CBaseModelEntity","m_clrRender");
         }
