@@ -35,16 +35,13 @@ public static class Debug
 
         if(pawn != null && pawn.AbsOrigin != null)
         {
-            Vector end = new Vector(pawn.AbsOrigin.X + 100.0f,pawn.AbsOrigin.Y,pawn.AbsOrigin.Z + 100.0f);
-            //Vector end = pawn.LookTargetPosition;
-
-            if(invoke != null)
-            {
-                invoke.PrintToChat($"end: {end.X} {end.Y} {end.Z}");
-            }
-
-            Lib.draw_laser(pawn.AbsOrigin,end,10.0f,2.0f,Lib.CYAN);
+            Vector mid =  new Vector(pawn.AbsOrigin.X,pawn.AbsOrigin.Y,pawn.AbsOrigin.Z);
+            Lib.draw_marker(mid.X,mid.Y,mid.Z,30.0f);
+            //invoke.play_sound("sounds/vo/agents/balkan/last_unit_alive_01");
+            invoke.play_sound("sounds/ambient/vo/agents/sas/lastmanstanding01");
         }
+
+
     }
     
     [RequiresPermissions("@jail/debug")]

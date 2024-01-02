@@ -54,6 +54,8 @@ public class Warden
 
         player.localise_announce(WARDEN_PREFIX,"warden.wcommand");
 
+        warden_timestamp = Lib.cur_timestamp();
+
         // change player color!
         player.set_colour(Color.FromArgb(255, 0, 0, 255));
     }
@@ -61,6 +63,12 @@ public class Warden
     public bool is_warden(CCSPlayerController? player)
     {
         return player.slot() == warden_slot;
+    }
+
+    public void remove_warden_internal()
+    {
+        warden_slot = INAVLID_SLOT;
+        warden_timestamp = -1;
     }
 
     public void remove_warden()
@@ -73,7 +81,7 @@ public class Warden
             Lib.localise_announce(WARDEN_PREFIX,"warden.removed",player.PlayerName);
         }
 
-        warden_slot = INAVLID_SLOT;
+        remove_warden_internal();
     }
 
     public void remove_if_warden(CCSPlayerController? player)
@@ -92,6 +100,20 @@ public class Warden
     public void leave_warden_cmd(CCSPlayerController? player, CommandInfo command)
     {
         remove_if_warden(player);
+    }
+
+    public void remove_marker_cmd(CCSPlayerController? player, CommandInfo command)
+    {
+        if(!player.is_valid() || player == null)
+        {
+            return;
+        }
+
+        if(is_warden(player))
+        {
+            player.announce(WARDEN_PREFIX,"Marker removed");
+            remove_marker();
+        }
     }
 
     [RequiresPermissions("@css/generic")]
@@ -218,6 +240,24 @@ public class Warden
         }
     }
 
+    public void warden_time_cmd(CCSPlayerController? invoke, CommandInfo command)
+    {
+        if(invoke == null || !invoke.is_valid())
+        {
+            return;
+        }
+
+        if(warden_slot == INAVLID_SLOT)
+        {
+            invoke.localise_prefix(WARDEN_PREFIX,"warden.no_warden");
+            return;
+        }
+
+        long elasped_min = (Lib.cur_timestamp() - warden_timestamp) / 60;
+
+        invoke.localise_prefix(WARDEN_PREFIX,"warden.time",elasped_min);
+    }
+
     public void cmd_info(CCSPlayerController? player, CommandInfo command)
     {
         if(player == null || !player.is_valid())
@@ -271,7 +311,10 @@ public class Warden
     // reset variables for a new round
     void purge_round()
     {
-        warden_slot = INAVLID_SLOT;
+        if(config.warden_force_removal)
+        {
+            remove_warden_internal();
+        }
 
         // reset player structs
         foreach(JailPlayer jail_player in jail_players)
@@ -288,22 +331,30 @@ public class Warden
         warday.map_start();
     }
 
-    void set_warden_if_last()
+    void set_warden_if_last(bool on_death = false)
     {
+        // dont override the warden if there is no death removal
+        if(!config.warden_force_removal)
+        {
+            return;
+        }
+
         // if there is only one ct automatically give them warden!
         var ct_players = Lib.get_alive_ct();
 
         if(ct_players.Count == 1)
         {
             int? slot = ct_players[0].slot();
+
+            if(on_death)
+            {
+                // play sfx for last ct
+                // TODO: this is too loud as there is no way to control volume..
+                //Lib.play_sound_all("sounds/vo/agents/sas/lastmanstanding03");
+            }
         
             set_warden(slot);
         }
-    }
-
-    void round_timer_callback()
-    {
-        start_timer = null;   
     }
 
     void setup_cvar()
@@ -312,6 +363,7 @@ public class Warden
         Server.ExecuteCommand("mp_autoteambalance 0");
         Server.ExecuteCommand("mp_equipment_reset_rounds 1");
         Server.ExecuteCommand("mp_t_default_secondary \"\" ");
+        Server.ExecuteCommand("mp_ct_default_secondary \"\" ");
     }
 
     public void round_start()
@@ -319,11 +371,6 @@ public class Warden
         setup_cvar();
 
         purge_round();
-
-        if(JailPlugin.global_ctx != null)
-        {
-            start_timer = JailPlugin.global_ctx.AddTimer(20.0F,round_timer_callback,CSTimer.TimerFlags.STOP_ON_MAPCHANGE);
-        }
 
         // handle submodules
         mute.round_start();
@@ -340,7 +387,6 @@ public class Warden
 
     public void round_end()
     {
-        Lib.kill_timer(ref start_timer);
         mute.round_end();
         warday.round_end();
         purge_round();
@@ -439,8 +485,11 @@ public class Warden
             return;
         }
 
-        // handle warden death
-        remove_if_warden(player);
+        if(config.warden_force_removal)
+        {
+            // handle warden death
+            remove_if_warden(player);
+        }
 
         // mute player
         mute.death(player);
@@ -455,7 +504,7 @@ public class Warden
         // if a t dies we dont need to regive the warden
         if(player.is_ct())
         {
-            set_warden_if_last();
+            set_warden_if_last(true);
         }
     }
 
@@ -635,25 +684,27 @@ public class Warden
         return jail_players[slot.Value];
     }
     
+    void remove_marker()
+    {
+        if(marker != null)
+        {
+            Lib.destroy_beam_group(marker);
+            marker = null;
+        }
+    }
+
     public void ping(CCSPlayerController? player, float x, float y, float z)
     {
         // draw marker
         if(is_warden(player) && player != null && player.is_valid())
         {
-            Vector start = new Vector(x,y,z);
+            // make sure we destroy the old marker
+            // because this generates alot of ents
+            remove_marker();
 
-            // line up
-            Vector end = new Vector(x,y,z + 61.0f);
-            Lib.draw_laser(start,end,20.0f,2.0f,Lib.CYAN);
+            //Server.PrintToChatAll($"{Lib.ent_count()}");
 
-            // draw cross
-            start = new Vector(x,y - 50.0f,z + 3.0f);
-            end = new Vector(x,y + 50.0f,z + 3.0f);
-            Lib.draw_laser(start,end,20.0f,2.0f,Lib.CYAN);
-
-            start = new Vector(x - 50.0f,y,z + 3.0f);
-            end = new Vector(x + 50.0f,y,z + 3.0f);
-            Lib.draw_laser(start,end,20.0f,2.0f,Lib.CYAN);
+            marker = Lib.draw_marker(x,y,z,60.0f);
         }
     }
 
@@ -721,10 +772,11 @@ public class Warden
     int warden_slot = INAVLID_SLOT;
     int laser_index = -1;
 
+    int[]? marker = null;
+
     public static readonly String WARDEN_PREFIX = $" {ChatColors.Green}[WARDEN]: {ChatColors.White}";
 
-
-    CSTimer.Timer? start_timer = null;
+    long warden_timestamp = -1;
 
     public JailConfig config = new JailConfig();
 

@@ -56,6 +56,10 @@ public class JailConfig : BasePluginConfig
     [JsonPropertyName("ct_armour")]
     public bool ct_armour { get; set; } = true;
 
+    [JsonPropertyName("warden_force_removal")]
+    public bool warden_force_removal { get; set; } = true;
+
+
     [JsonPropertyName("warday_guns")]
     public bool warday_guns { get; set; } = false;
 
@@ -160,6 +164,30 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         }
     }
 
+    public static void win_lr(CCSPlayerController? player,LastRequest.LRType type)
+    {
+        if(global_ctx != null)
+        {
+            jail_stats.win(player,type);
+        }
+    }
+
+    public static void lose_lr(CCSPlayerController? player, LastRequest.LRType type)
+    {
+        if(global_ctx != null)
+        {
+            jail_stats.loss(player,type);
+        }
+    }
+
+    public static void purge_player_stats(CCSPlayerController? player)
+    {
+        if(global_ctx != null)
+        {
+            jail_stats.purge_player(player);
+        }
+    }
+
     public override string ModuleName => "CS2 Jailbreak - destoer";
 
     public override string ModuleVersion => "v0.2.2";
@@ -179,12 +207,19 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         //AddTimer(Warden.LASER_TIME,warden.laser_tick,CSTimer.TimerFlags.REPEAT);
     }
 
+    void stat_db_reload()
+    {
+        var database = jail_stats.connect_db();
+
+        jail_stats.setup_db(database);
+    }
+
     public void OnConfigParsed(JailConfig config)
     {
         // give each sub plugin the config
         this.Config = config;
         
-        lr.lr_stats.config = config;
+        jail_stats.config = config;
         lr.config = config;
 
         warden.config = config;
@@ -210,6 +245,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         AddCommand("css_w", "take warden", warden.take_warden_cmd);
         AddCommand("css_uw", "leave warden", warden.leave_warden_cmd);
         AddCommand("css_rw", "remove warden", warden.remove_warden_cmd);
+        AddCommand("css_clear_marker", "remove warden marker",warden.remove_marker_cmd);
 
         AddCommand("css_wub","warden : disable block",warden.wub_cmd);
         AddCommand("css_wb","warden : enable block",warden.wb_cmd);
@@ -218,6 +254,8 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         AddCommand("css_wd","warden : start warday",warden.warday_cmd);
         AddCommand("css_wcommands", "warden : show all commands",warden.cmd_info);
+        AddCommand("css_wtime", "how long as warden been active?", warden.warden_time_cmd);
+
 
         AddCommand("css_guns","give ct guns",warden.cmd_ct_guns);
 
@@ -227,7 +265,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         // reg lr commands
         AddCommand("css_lr","start an lr",lr.lr_cmd);
         AddCommand("css_cancel_lr","admin : cancel lr",lr.cancel_lr_cmd);
-        AddCommand("css_lr_stats","list lr stats",lr.lr_stats.lr_stats_cmd);
+        AddCommand("css_lr_stats","list lr stats",jail_stats.lr_stats_cmd);
 
         // reg sd commands
         AddCommand("css_sd","start a sd",sd.sd_cmd);
@@ -254,7 +292,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
     public HookResult join_team(CCSPlayerController? invoke, CommandInfo command)
     {
-        lr.lr_stats.connect(invoke);
+        jail_stats.connect(invoke);
         
         if(!warden.join_team(invoke,command))
         {
@@ -281,7 +319,14 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventWeaponZoom>(OnWeaponZoom);
         RegisterEventHandler<EventPlayerPing>(OnPlayerPing);
-        VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Hook(OnTakeDamage,HookMode.Pre);
+
+        // take damage causes crashes on windows
+        // cant figure out why because the windows cs2 console wont log
+        // before it dies
+        if(!Lib.is_windows())
+        {
+            VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Hook(OnTakeDamage,HookMode.Pre);
+        }
         
         HookEntityOutput("func_button", "OnPressed", OnButtonPressed);
         
@@ -515,7 +560,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         if(player != null && player.is_valid())
         {
-            lr.lr_stats.connect(player);
+            jail_stats.connect(player);
         }
 
         return HookResult.Continue;
@@ -550,8 +595,11 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         var player = @event.Userid;
         String name = @event.Weapon;
 
-        warden.weapon_fire(player,name);
-        lr.weapon_fire(player,name);
+        if(player != null && player.is_valid_alive())
+        {
+            warden.weapon_fire(player,name);
+            lr.weapon_fire(player,name);
+        }
 
         return HookResult.Continue;
     }
@@ -569,4 +617,5 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
     public static Warden warden = new Warden();
     public static LastRequest lr = new LastRequest();
     public static SpecialDay sd = new SpecialDay();
+    public static JailStats jail_stats = new JailStats();
 }

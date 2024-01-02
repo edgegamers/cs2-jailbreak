@@ -43,10 +43,6 @@ public class LastRequest
     public void lr_config_reload()
     {
         create_lr_slots(config.lr_count);
-
-        var database = lr_stats.connect_db();
-
-        lr_stats.setup_db(database);
     }
 
     void create_lr_slots(uint slots)
@@ -276,6 +272,8 @@ public class LastRequest
 
     public void round_start()
     {
+        start_timestamp = Lib.cur_timestamp();
+
         purge_lr();
     }
 
@@ -286,7 +284,7 @@ public class LastRequest
 
     public void disconnect(CCSPlayerController? player)
     {
-        lr_stats.purge_player(player);
+        JailPlugin.purge_player_stats(player);
 
         LRBase? lr = find_lr(player);
 
@@ -576,7 +574,19 @@ public class LastRequest
 
     bool can_start_lr(CCSPlayerController? player)
     {
-        if(player == null || !is_valid_t(player))
+        if(player == null || !player.is_valid())
+        {
+            return false;
+        }
+
+        // prevent starts are round begin to stop lr activations on map joins
+        if(Lib.cur_timestamp() - start_timestamp < 15)
+        {
+            player.localise_prefix(LR_PREFIX,"lr.wait");
+            return false;
+        }
+
+        if(!is_valid_t(player))
         {
             return false;
         } 
@@ -650,14 +660,14 @@ public class LastRequest
 
         choice.type = type_from_name(option.Text);
 
-
+        String lr_name = LR_NAME[(int)choice.type];
 
         // now select option
         switch(choice.type)
         {
             case LRType.KNIFE:
             {
-                var lr_menu = new ChatMenu("Choice Menu");
+                var lr_menu = new ChatMenu($"Choice Menu ({lr_name})");
 
                 lr_menu.AddMenuOption("Vanilla", picked_option);
                 lr_menu.AddMenuOption("Low gravity", picked_option);
@@ -670,7 +680,7 @@ public class LastRequest
 
             case LRType.DODGEBALL:
             {
-                var lr_menu = new ChatMenu("Choice Menu");
+                var lr_menu = new ChatMenu($"Choice Menu ({lr_name})");
 
                 lr_menu.AddMenuOption("Vanilla", picked_option);
                 lr_menu.AddMenuOption("Low gravity", picked_option);
@@ -681,7 +691,7 @@ public class LastRequest
 
             case LRType.NO_SCOPE:
             {
-                var lr_menu = new ChatMenu("Choice Menu");
+                var lr_menu = new ChatMenu($"Choice Menu ({lr_name})");
 
                 lr_menu.AddMenuOption("Awp", picked_option);
                 lr_menu.AddMenuOption("Scout", picked_option);
@@ -692,7 +702,7 @@ public class LastRequest
 
             case LRType.GRENADE:
             {
-                var lr_menu = new ChatMenu("Choice Menu");
+                var lr_menu = new ChatMenu($"Choice Menu ({lr_name})");
 
                 lr_menu.AddMenuOption("Vanilla", picked_option);
                 lr_menu.AddMenuOption("Low gravity", picked_option);
@@ -704,7 +714,7 @@ public class LastRequest
             case LRType.SHOT_FOR_SHOT:
             case LRType.MAG_FOR_MAG:
             {
-                var lr_menu = new ChatMenu("Choice Menu");
+                var lr_menu = new ChatMenu($"Choice Menu ({lr_name})");
 
                 lr_menu.AddMenuOption("Deagle",picked_option);
                 //lr_menu.AddMenuOption("Usp",picked_option);
@@ -744,7 +754,8 @@ public class LastRequest
             // scan for avaiable CT's that are alive and add as choice
             var alive_t = Lib.get_alive_t();
 
-            var lr_menu = new ChatMenu("Partner Menu");
+            String lr_name = LR_NAME[(int)choice.type];
+            var lr_menu = new ChatMenu($"Partner Menu ({lr_name})");
 
             foreach(var t in alive_t)
             {
@@ -765,7 +776,8 @@ public class LastRequest
             // scan for avaiable CT's that are alive and add as choice
             var alive_ct = Lib.get_alive_ct();
 
-            var lr_menu = new ChatMenu("Partner Menu");
+            String lr_name = LR_NAME[(int)choice.type];
+            var lr_menu = new ChatMenu($"Partner Menu ({lr_name})");
 
             foreach(var ct in alive_ct)
             {
@@ -1072,8 +1084,8 @@ public class LastRequest
     public JailConfig config = new JailConfig();
 
     LRChoice[] lr_choice = new LRChoice[64];
-    public LRStats lr_stats = new LRStats();
-
+    
+    long start_timestamp = 0;
 
     public static readonly String LR_PREFIX = $" {ChatColors.Green}[LR]: {ChatColors.White}";
 }
