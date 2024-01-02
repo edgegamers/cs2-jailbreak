@@ -338,7 +338,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
     }
 
     HookResult CommandListener_RadioCommand(CCSPlayerController? player, CommandInfo info) {
-        return HookResult.Stop;
+        return is_warden(player) ? HookResult.Handled : HookResult.Stop;
     }
 
     HookResult OnPlayerPing(EventPlayerPing  @event, GameEventInfo inf)
