@@ -32,6 +32,12 @@ public class JailConfig : BasePluginConfig
     [JsonPropertyName("database")]
     public String database { get; set; } = "cs2_jail";
 
+    [JsonPropertyName("mute_dead")]
+    public bool mute_dead { get; set; } = true;
+
+    [JsonPropertyName("warden_laser")]
+    public bool warden_laser { get; set; } = true;
+
     [JsonPropertyName("ct_voice_only")]
     public bool ct_voice_only { get; set; } = false;
 
@@ -204,7 +210,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         Console.WriteLine("Sucessfully started JB");
 
-        //AddTimer(Warden.LASER_TIME,warden.laser_tick,CSTimer.TimerFlags.REPEAT);
+        AddTimer(Warden.LASER_TIME,warden.laser_tick,CSTimer.TimerFlags.REPEAT);
     }
 
     void stat_db_reload()
@@ -505,6 +511,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
                         // ct gets a suicide
                         @event.Userid = victim;
                         @event.Attacker = victim;
+                        @event.Assister = victim;
 
                         @event.FireEventToClient(player);
                     }
