@@ -32,6 +32,12 @@ public class JailConfig : BasePluginConfig
     [JsonPropertyName("database")]
     public String database { get; set; } = "cs2_jail";
 
+    [JsonPropertyName("mute_dead")]
+    public bool mute_dead { get; set; } = true;
+
+    [JsonPropertyName("warden_laser")]
+    public bool warden_laser { get; set; } = true;
+
     [JsonPropertyName("ct_voice_only")]
     public bool ct_voice_only { get; set; } = false;
 
@@ -55,6 +61,10 @@ public class JailConfig : BasePluginConfig
 
     [JsonPropertyName("ct_armour")]
     public bool ct_armour { get; set; } = true;
+
+    [JsonPropertyName("warden_force_removal")]
+    public bool warden_force_removal { get; set; } = true;
+
 
     [JsonPropertyName("warday_guns")]
     public bool warday_guns { get; set; } = false;
@@ -108,6 +118,9 @@ public class JailConfig : BasePluginConfig
 
     [JsonPropertyName("lr_count")]
     public uint lr_count { get; set; } = 2;
+
+    [JsonPropertyName("rebel_requirehit")]
+    public bool rebel_requirehit { get; set; } = false;
 }
 
 // main plugin file, controls central hooking
@@ -160,6 +173,30 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         }
     }
 
+    public static void win_lr(CCSPlayerController? player,LastRequest.LRType type)
+    {
+        if(global_ctx != null)
+        {
+            jail_stats.win(player,type);
+        }
+    }
+
+    public static void lose_lr(CCSPlayerController? player, LastRequest.LRType type)
+    {
+        if(global_ctx != null)
+        {
+            jail_stats.loss(player,type);
+        }
+    }
+
+    public static void purge_player_stats(CCSPlayerController? player)
+    {
+        if(global_ctx != null)
+        {
+            jail_stats.purge_player(player);
+        }
+    }
+
     public override string ModuleName => "CS2 Jailbreak - destoer";
 
     public override string ModuleVersion => "v0.2.2";
@@ -176,7 +213,14 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         Console.WriteLine("Sucessfully started JB");
 
-        //AddTimer(Warden.LASER_TIME,warden.laser_tick,CSTimer.TimerFlags.REPEAT);
+        AddTimer(Warden.LASER_TIME,warden.laser_tick,CSTimer.TimerFlags.REPEAT);
+    }
+
+    void stat_db_reload()
+    {
+        var database = jail_stats.connect_db();
+
+        jail_stats.setup_db(database);
     }
 
     public void OnConfigParsed(JailConfig config)
@@ -184,7 +228,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         // give each sub plugin the config
         this.Config = config;
         
-        lr.lr_stats.config = config;
+        jail_stats.config = config;
         lr.config = config;
 
         warden.config = config;
@@ -207,52 +251,57 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
     void register_commands()
     {
         // reg warden comamnds
-        AddCommand("w", "take warden", warden.take_warden_cmd);
-        AddCommand("uw", "leave warden", warden.leave_warden_cmd);
-        AddCommand("rw", "remove warden", warden.remove_warden_cmd);
+        AddCommand("css_w", "take warden", warden.take_warden_cmd);
+        AddCommand("css_uw", "leave warden", warden.leave_warden_cmd);
+        AddCommand("css_rw", "remove warden", warden.remove_warden_cmd);
+        AddCommand("css_clear_marker", "remove warden marker",warden.remove_marker_cmd);
 
-        AddCommand("wub","warden : disable block",warden.wub_cmd);
-        AddCommand("wb","warden : enable block",warden.wb_cmd);
+        AddCommand("css_wub","warden : disable block",warden.wub_cmd);
+        AddCommand("css_wb","warden : enable block",warden.wb_cmd);
 
-        AddCommand("swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
+        AddCommand("css_swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
 
-        AddCommand("wd","warden : start warday",warden.warday_cmd);
-        AddCommand("wcommands", "warden : show all commands",warden.cmd_info);
+        AddCommand("css_wd","warden : start warday",warden.warday_cmd);
+        AddCommand("css_wcommands", "warden : show all commands",warden.cmd_info);
+        AddCommand("css_wtime", "how long as warden been active?", warden.warden_time_cmd);
 
-        AddCommand("guns","give ct guns",warden.cmd_ct_guns);
+
+        AddCommand("css_guns","give ct guns",warden.cmd_ct_guns);
+
+        AddCommand("css_force_open","force open every door and vent",warden.force_open_cmd);
+        AddCommand("css_force_close","force close every door",warden.force_close_cmd);
 
         // reg lr commands
-        AddCommand("lr","start an lr",lr.lr_cmd);
-        AddCommand("cancel_lr","admin : cancel lr",lr.cancel_lr_cmd);
-        AddCommand("lr_stats","list lr stats",lr.lr_stats.lr_stats_cmd);
+        AddCommand("css_lr","start an lr",lr.lr_cmd);
+        AddCommand("css_cancel_lr","admin : cancel lr",lr.cancel_lr_cmd);
+        AddCommand("css_lr_stats","list lr stats",jail_stats.lr_stats_cmd);
 
         // reg sd commands
-        AddCommand("sd","start a sd",sd.sd_cmd);
-        AddCommand("sd_ff","start a ff sd",sd.sd_ff_cmd);
-        AddCommand("cancel_sd","cancel an sd",sd.cancel_sd_cmd);
+        AddCommand("css_sd","start a sd",sd.sd_cmd);
+        AddCommand("css_sd_ff","start a ff sd",sd.sd_ff_cmd);
+        AddCommand("css_cancel_sd","cancel an sd",sd.cancel_sd_cmd);
 
         AddCommandListener("jointeam",join_team);
 
         // debug 
         if(Debug.enable)
         {
-            AddCommand("nuke","debug : kill every player",Debug.nuke);
-            AddCommand("force_open","debug : force open every door and vent",Debug.force_open_cmd);
-            AddCommand("is_rebel","debug : print rebel state to console",warden.is_rebel_cmd);
-            AddCommand("lr_debug","debug : start an lr without restriction",lr.lr_debug_cmd);
-            AddCommand("is_blocked","debug : print block state",warden.block.is_blocked);
-            AddCommand("test_laser","test laser",Debug.test_laser);
-            AddCommand("test_strip","test weapon strip",Debug.test_strip_cmd);
-            AddCommand("join_ct_debug","debug : force join ct",Debug.join_ct_cmd);
-            AddCommand("hide_weapon_debug","debug : hide player weapon on back",Debug.hide_weapon_cmd);
-            AddCommand("rig","debug : force player to boss on sd",sd.sd_rig_cmd);
-            AddCommand("is_muted","debug : print voice flags",Debug.is_muted_cmd);
+            AddCommand("css_nuke","debug : kill every player",Debug.nuke);
+            AddCommand("css_is_rebel","debug : print rebel state to console",warden.is_rebel_cmd);
+            AddCommand("css_lr_debug","debug : start an lr without restriction",lr.lr_debug_cmd);
+            AddCommand("css_is_blocked","debug : print block state",warden.block.is_blocked);
+            AddCommand("css_test_laser","test laser",Debug.test_laser);
+            AddCommand("css_test_strip","test weapon strip",Debug.test_strip_cmd);
+            AddCommand("css_join_ct_debug","debug : force join ct",Debug.join_ct_cmd);
+            AddCommand("css_hide_weapon_debug","debug : hide player weapon on back",Debug.hide_weapon_cmd);
+            AddCommand("css_rig","debug : force player to boss on sd",sd.sd_rig_cmd);
+            AddCommand("css_is_muted","debug : print voice flags",Debug.is_muted_cmd);
         }
     }
 
     public HookResult join_team(CCSPlayerController? invoke, CommandInfo command)
     {
-        lr.lr_stats.connect(invoke);
+        jail_stats.connect(invoke);
         
         if(!warden.join_team(invoke,command))
         {
@@ -279,13 +328,26 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventWeaponZoom>(OnWeaponZoom);
         RegisterEventHandler<EventPlayerPing>(OnPlayerPing);
-        VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Hook(OnTakeDamage,HookMode.Pre);
+
+        // take damage causes crashes on windows
+        // cant figure out why because the windows cs2 console wont log
+        // before it dies
+        if(!Lib.is_windows())
+        {
+            VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Hook(OnTakeDamage,HookMode.Pre);
+        }
         
         HookEntityOutput("func_button", "OnPressed", OnButtonPressed);
         
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
 
+        AddCommandListener("player_ping", CommandListener_RadioCommand);
+
         // TODO: need to hook weapon drop
+    }
+
+    HookResult CommandListener_RadioCommand(CCSPlayerController? player, CommandInfo info) {
+        return is_warden(player) ? HookResult.Continue: HookResult.Stop;
     }
 
     HookResult OnPlayerPing(EventPlayerPing  @event, GameEventInfo inf)
@@ -297,7 +359,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
             warden.ping(player,@event.X,@event.Y,@event.Z);
         }
 
-        return HookResult.Continue;
+        return HookResult.Stop;
     }
 
     void OnClientVoice(int slot)
@@ -452,6 +514,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
                         // ct gets a suicide
                         @event.Userid = victim;
                         @event.Attacker = victim;
+                        @event.Assister = victim;
 
                         @event.FireEventToClient(player);
                     }
@@ -513,7 +576,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         if(player != null && player.is_valid())
         {
-            lr.lr_stats.connect(player);
+            jail_stats.connect(player);
         }
 
         return HookResult.Continue;
@@ -548,8 +611,11 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         var player = @event.Userid;
         String name = @event.Weapon;
 
-        warden.weapon_fire(player,name);
-        lr.weapon_fire(player,name);
+        if(player != null && player.is_valid_alive())
+        {
+            warden.weapon_fire(player,name);
+            lr.weapon_fire(player,name);
+        }
 
         return HookResult.Continue;
     }
@@ -567,4 +633,5 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
     public static Warden warden = new Warden();
     public static LastRequest lr = new LastRequest();
     public static SpecialDay sd = new SpecialDay();
+    public static JailStats jail_stats = new JailStats();
 }

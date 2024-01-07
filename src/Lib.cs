@@ -14,7 +14,7 @@ using CounterStrikeSharp.API.Modules.Entities.Constants;
 using CSTimer = CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Admin;
 using System.Drawing;
-
+using System.Text;
 
 // NOTE: this is a timer wrapper, and should be owned the class
 // wanting to use the timer
@@ -75,7 +75,6 @@ public class Countdown<T>
         }
     }
 
-
     public int delay = 0;
     public Action<T>? callback = null;
     public String name = "";
@@ -133,7 +132,7 @@ public static class Lib
     // Cheers Kill for suggesting method extenstions
     static public bool is_valid(this CCSPlayerController? player)
     {
-        return player != null && player.IsValid &&  player.PlayerPawn.IsValid;
+        return player != null && player.IsValid &&  player.PlayerPawn.IsValid && player.PlayerPawn.Value?.IsValid == true;
     }
 
     static public bool is_t(this CCSPlayerController? player)
@@ -186,7 +185,7 @@ public static class Lib
 
         if(pawn == null)
         {
-            return 100;
+            return 0;
         }
 
         return pawn.Health;
@@ -227,6 +226,16 @@ public static class Lib
         });
     }
 
+    static public void remove_ent(int index, String name)
+    {
+        CBaseEntity? ent = Utilities.GetEntityFromIndex<CBaseEntity>(index);
+
+        if(ent != null && ent.DesignerName == name)
+        {
+            ent.Remove();
+        }
+    }
+
     static public void remove_ent_delay(CEntityInstance entity, float delay, String name)
     {
         // remove projectile
@@ -238,12 +247,7 @@ public static class Lib
             {
                 JailPlugin.global_ctx.AddTimer(delay,() => 
                 {
-                    CBaseEntity? grenade = Utilities.GetEntityFromIndex<CBaseEntity>(index);
-
-                    if(grenade != null && grenade.DesignerName == name)
-                    {
-                        grenade.Remove();
-                    }
+                    remove_ent(index,name);
                 });
             }
         }
@@ -298,12 +302,8 @@ public static class Lib
             return;
         }
 
-        if(is_windows())
-        {
-           return; 
-        }
-
-        else
+        // buggy on windows (Wrong gamedata issue)
+        if(!is_windows())
         {
             player.RemoveWeapons();
         }
@@ -322,6 +322,7 @@ public static class Lib
         if(pawn != null && player.is_valid_alive())
         {
             pawn.RenderMode = RenderMode_t.kRenderTransColor;
+            colour = Color.FromArgb(pawn.Render.A,colour.R,colour.G,colour.B);
             pawn.Render = colour;
             Utilities.SetStateChanged(pawn,"CBaseModelEntity","m_clrRender");
         }
@@ -340,21 +341,12 @@ public static class Lib
     static Vector VEC_ZERO = new Vector(0.0f,0.0f,0.0f);
     static QAngle ANGLE_ZERO = new QAngle(0.0f,0.0f,0.0f);
 
-    static public void draw_laser(Vector start, Vector end, float life, float width, Color color)
+    static public void move(this CEnvBeam? laser,Vector start, Vector end)
     {
-        CEnvBeam? laser = Utilities.CreateEntityByName<CEnvBeam>("env_beam");
-
         if(laser == null)
         {
             return;
         }
-
-        // setup looks
-        laser.Render = color;
-        laser.Width = 2.0f;
-
-        // circle not working?
-        //laser.Flags |= 8;
 
         // set pos
         laser.Teleport(start, ANGLE_ZERO, VEC_ZERO);
@@ -365,11 +357,46 @@ public static class Lib
         laser.EndPos.Y = end.Y;
         laser.EndPos.Z = end.Z;
 
+        Utilities.SetStateChanged(laser,"CBeam", "m_vecEndPos");
+    }
+
+    static public void set_colour(this CEnvBeam? laser, Color colour)
+    {
+        if(laser != null)
+        {
+            laser.Render = colour;
+        }
+    }
+
+
+    static public int draw_laser(Vector start, Vector end, float life, float width, Color colour)
+    {
+        CEnvBeam? laser = Utilities.CreateEntityByName<CEnvBeam>("env_beam");
+
+        if(laser == null)
+        {
+            return -1;
+        }
+
+        // setup looks
+        laser.set_colour(colour);
+        laser.Width = 2.0f;
+
+        // circle not working?
+        //laser.Flags |= 8;
+
+        laser.move(start,end);
+
         // start spawn
         laser.DispatchSpawn(); 
 
         // create a timer to remove it
-        remove_ent_delay(laser,life,"env_beam");
+        if(life != 0.0f)
+        {
+            remove_ent_delay(laser,life,"env_beam");
+        }
+
+        return (int)laser.Index;
     }
 
     static public void play_sound(this CCSPlayerController? player, String sound)
@@ -380,6 +407,14 @@ public static class Lib
         }
 
         player.ExecuteClientCommand($"play {sound}");
+    }
+
+    static public void play_sound_all(String sound)
+    {
+        foreach(CCSPlayerController? player in Utilities.GetPlayers())
+        {
+            player.play_sound(sound);
+        }
     }
 
     static public CCSPlayerController? player(this CEntityInstance? instance)
@@ -565,6 +600,12 @@ public static class Lib
         return null;
     }
 
+    static public long cur_timestamp()
+    {
+        return DateTimeOffset.Now.ToUnixTimeSeconds();
+    }
+
+
     static public void set_ammo(this CBasePlayerWeapon? weapon, int clip, int reserve)
     {
         if(weapon == null || !weapon.is_valid())
@@ -572,10 +613,36 @@ public static class Lib
             return;
         }
 
-        weapon.Clip1 = clip;
-        Utilities.SetStateChanged(weapon,"CBasePlayerWeapon","m_iClip1");
-        weapon.ReserveAmmo[0] = reserve;
-        Utilities.SetStateChanged(weapon,"CBasePlayerWeapon","m_pReserveAmmo");
+        // overide reserve max so it doesn't get clipped when
+        // setting "infinite ammo"
+        // thanks 1Mack
+        CCSWeaponBaseVData? weapon_data = weapon.As<CCSWeaponBase>().VData;
+
+        if(weapon_data != null)
+        {
+            if(clip > weapon_data.MaxClip1)
+            {
+                weapon_data.MaxClip1 = clip;
+                weapon_data.DefaultClip1 = clip;
+            }
+
+            if(reserve > weapon_data.PrimaryReserveAmmoMax)
+            {
+                weapon_data.PrimaryReserveAmmoMax = reserve;
+            }
+        }
+
+        if(clip != -1)
+        {
+            weapon.Clip1 = clip;
+            Utilities.SetStateChanged(weapon,"CBasePlayerWeapon","m_iClip1");
+        }
+
+        if(reserve != -1)
+        {
+            weapon.ReserveAmmo[0] = reserve;
+            Utilities.SetStateChanged(weapon,"CBasePlayerWeapon","m_pReserveAmmo");
+        }
     }
 
     public static void restore_hp(CCSPlayerController? player, int damage, int health)
@@ -617,11 +684,19 @@ public static class Lib
             return;
         }
 
+        // strip guns so the new ones don't just drop to the ground
         player.strip_weapons();
 
+        // give their desired guns with lots of reserve ammo
         player.GiveNamedItem("weapon_" + gun_give_name(option.Text));
         player.GiveNamedItem("weapon_deagle");
 
+        CBasePlayerWeapon? primary = Lib.find_weapon(player,gun_give_name(option.Text));
+        primary.set_ammo(-1,999);
+
+        CBasePlayerWeapon? secondary = Lib.find_weapon(player,"deagle");
+        secondary.set_ammo(-1,999);
+        
         player.GiveNamedItem("item_assaultsuit");
     }
 
@@ -863,7 +938,9 @@ public static class Lib
 
     public static int? slot(this CCSPlayerController? player)
     {
-        if(player == null)
+        // dont think a full validity check here is desirable
+        // for stuff like connect events?
+        if(player == null || !player.IsValid)
         {
             return null;
         }
@@ -871,15 +948,95 @@ public static class Lib
         return to_slot(player.UserId);
     }
 
+    static void force_ent_input(String name, String input)
+    {
+        // search for door entitys and open all of them!
+        var target = Utilities.FindAllEntitiesByDesignerName<CBaseEntity>(name);
+
+        foreach(var ent in target)
+        {
+            if(!ent.IsValid)
+            {
+                continue;
+            }
+
+            ent.AcceptInput(input);
+        }
+    }
+
+    // TODO: is their a cheaper way to do this?
+    static public int ent_count()
+    {
+        return Utilities.GetAllEntities().Count();
+    }
+
+    static Vector angle_on_circle(float angle,float r, Vector mid)
+    {
+        // {r * cos(x),r * sin(x)} + mid
+        // NOTE: we offset Z so it doesn't clip into the ground
+        return new Vector((float)(mid.X + (r * Math.Cos(angle))),(float)(mid.Y + (r * Math.Sin(angle))), mid.Z + 6.0f);
+    }
+
+    static public int[] draw_marker(float X,float Y, float Z,float time)
+    {
+        Vector mid =  new Vector(X,Y,Z);
+
+        int lines = 30;
+        int[] ent = new int[lines];
+
+
+        // draw piecewise approx by stepping angle
+        // and joining points with a dot to dot
+        float step = (float)(2.0f * Math.PI) / (float)lines;
+        float r = 75.0f;
+
+        float angle_old = 0.0f;
+        float angle_cur = step;
+
+
+        for(int i = 0; i < lines; i++)
+        {
+            Vector start = angle_on_circle(angle_old,r,mid);
+            Vector end = angle_on_circle(angle_cur,r,mid);
+
+            ent[i] = Lib.draw_laser(start,end,time,2.0f,Lib.CYAN);
+
+            angle_old = angle_cur;
+            angle_cur += step;
+        }
+
+        return ent;
+    }
+
+    static public void destroy_beam_group(int[] ent)
+    {
+        foreach(int laser in ent)
+        {
+            remove_ent(laser,"env_beam");
+        }
+    }
+
+    static String DOOR_PREFIX =  $" {ChatColors.Green}[Door control]: {ChatColors.White}";
+
+    public static void force_close()
+    {
+        announce(DOOR_PREFIX,"Forcing closing all doors!");
+
+        force_ent_input("func_door","Close");
+        force_ent_input("func_movelinear","Close");
+        force_ent_input("func_door_rotating","Close");
+        force_ent_input("prop_door_rotating","Close");
+    }
+
     public static void force_open()
     {
-        announce("[Door control]: ","Forcing open all doors!");
+        announce(DOOR_PREFIX,"Forcing open all doors!");
 
-        /*
-        // search for door entitys and open all of them!
-        var doors = Utilities.FindAllEntitiesByDesignerName<CBaseDoor>("func_door");
-
-        */
+        force_ent_input("func_door","Open");
+        force_ent_input("func_movelinear","Open");
+        force_ent_input("func_door_rotating","Open");
+        force_ent_input("prop_door_rotating","Open");
+        force_ent_input("func_breakable","Break");
     }
 
     static public bool is_active_team(int team)
@@ -911,6 +1068,7 @@ public static class Lib
 
     public static readonly Color CYAN = Color.FromArgb(255, 153, 255, 255);
     public static readonly Color RED = Color.FromArgb(255, 255, 0, 0);
+    public static readonly Color INVIS = Color.FromArgb(0, 255, 255, 255);
 
     static ConVar? block_cvar = ConVar.Find("mp_solid_teammates");
     static ConVar? ff = ConVar.Find("mp_teammates_are_enemies");
