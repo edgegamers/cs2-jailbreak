@@ -262,6 +262,8 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         AddCommand("css_wub","warden : disable block",warden.wub_cmd);
         AddCommand("css_wb","warden : enable block",warden.wb_cmd);
+        AddCommand("css_marker_colour", "set laser colour", warden.marker_colour_cmd);
+        AddCommand("css_laser_colour", "set laser colour", warden.laser_colour_cmd);
 
         AddCommand("css_swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
 
