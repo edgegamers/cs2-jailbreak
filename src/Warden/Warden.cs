@@ -430,7 +430,7 @@ public class Warden
             var ct_players = Lib.get_alive_ct();
 
             // shuffle them
-            t_players.Shuffle();
+            // ct_players.Shuffle();
 
             // get the amount of players to move
             int move_count = (ct_count * config.bal_guards) - t_count;
@@ -438,8 +438,8 @@ public class Warden
             // move the players
             for(int i = 0; i < move_count; i++)
             {
-                t_players[i].SwitchTeam(CsTeam.Terrorist);
-                t_players[i].PrintToChat("You've been automatically swapped to maintain a balanced ratio.");
+                ct_players[i].SwitchTeam(CsTeam.Terrorist);
+                ct_players[i].PrintToChat("You've been automatically swapped to maintain a balanced ratio.");
             }
         }
     }
