@@ -1090,6 +1090,12 @@ public static class Lib
         }
     }
 
+    // TODO: just go with a simple print for now
+    static public void log(String str)
+    {
+        Console.WriteLine($"[JAILBREAK]: {str}");
+    }
+
 
     public static readonly Color CYAN = Color.FromArgb(255, 153, 255, 255);
     public static readonly Color RED = Color.FromArgb(255, 255, 0, 0);
