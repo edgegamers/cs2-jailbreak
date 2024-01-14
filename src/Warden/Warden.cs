@@ -378,6 +378,7 @@ public class Warden
         mute.round_start();
         block.round_start();
         warday.round_start();
+        rebalanceTeams();
 
         foreach(CCSPlayerController player in Utilities.GetPlayers())
         {
@@ -410,6 +411,37 @@ public class Warden
     public void disconnect(CCSPlayerController? player)
     {
         remove_if_warden(player);
+    }
+
+    public void rebalanceTeams() {
+        if(config.bal_guards == 0)
+        {
+            return;
+        }
+
+        int ct_count = Lib.ct_count();
+        int t_count = Lib.t_count();
+
+        // check CT aint full 
+        // i.e at a suitable raito or either team is empty
+        if((ct_count * config.bal_guards) > t_count && ct_count != 0 && t_count != 0)
+        {
+            // get all the ct's
+            var ct_players = Lib.get_alive_ct();
+
+            // shuffle them
+            t_players.Shuffle();
+
+            // get the amount of players to move
+            int move_count = (ct_count * config.bal_guards) - t_count;
+
+            // move the players
+            for(int i = 0; i < move_count; i++)
+            {
+                t_players[i].SwitchTeam(CsTeam.Terrorist);
+                t_players[i].PrintToChat("You've been automatically swapped to maintain a balanced ratio.");
+            }
+        }
     }
 
     public void setup_player_guns(CCSPlayerController? player)
