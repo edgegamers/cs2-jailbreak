@@ -439,7 +439,7 @@ public partial class Warden
             // ct_players.Shuffle();
 
             // get the amount of players to move
-            int move_count = ct_count - (t_count / config.bal_guards); 
+            int move_count = ct_count - (t_count / config.bal_guards + 1); 
 
             // move the players
             for(int i = 0; i < move_count; i++)
