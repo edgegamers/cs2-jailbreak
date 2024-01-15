@@ -38,6 +38,7 @@ jobs:
             bin/Debug/net7.0/publish/MySqlConnector.dll
             bin/Debug/net7.0/publish/Cs2Jailbreak.pdb
             bin/Debug/net7.0/publish/Microsoft.Data.Sqlite.dll
+            bin/Debug/net7.0/publish/SQLitePCLRaw*.*
 
   release:
     needs: build
