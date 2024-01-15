@@ -473,6 +473,7 @@ public partial class Warden
                 player.GiveNamedItem("item_assaultsuit");
             }
         } 
+        player.GiveNamedItem("weapon_knife");
     }
 
     public void voice(CCSPlayerController? player)
