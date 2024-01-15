@@ -439,12 +439,12 @@ public partial class Warden
             // ct_players.Shuffle();
 
             // get the amount of players to move
-            int move_count = (ct_count * config.bal_guards) - t_count;
+            int move_count = ct_count - (t_count / config.bal_guards); 
 
             // move the players
             for(int i = 0; i < move_count; i++)
             {
-                ct_players[i].SwitchTeam(CsTeam.Terrorist);
+                ct_players[i].ChangeTeam(CsTeam.Terrorist);
                 ct_players[i].PrintToChat("You've been automatically swapped to maintain a balanced ratio.");
             }
         }
