@@ -383,6 +383,7 @@ public class Warden
         foreach(CCSPlayerController player in Utilities.GetPlayers())
         {
             player.set_colour(Color.FromArgb(255, 255, 255, 255));
+            player.GiveNamedItem("weapon_knife");
         }
 
         set_warden_if_last();
