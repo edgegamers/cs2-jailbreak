@@ -36,12 +36,8 @@ public static class Debug
         if(pawn != null && pawn.AbsOrigin != null)
         {
             Vector mid =  new Vector(pawn.AbsOrigin.X,pawn.AbsOrigin.Y,pawn.AbsOrigin.Z);
-            Lib.draw_marker(mid.X,mid.Y,mid.Z,30.0f);
-            //invoke.play_sound("sounds/vo/agents/balkan/last_unit_alive_01");
-            invoke.play_sound("sounds/ambient/vo/agents/sas/lastmanstanding01");
+            Lib.draw_marker(mid.X,mid.Y,mid.Z,30.0f,75.0f,Lib.CYAN);
         }
-
-
     }
     
     [RequiresPermissions("@jail/debug")]
@@ -84,6 +80,12 @@ public static class Debug
         {
             invoke.PrintToConsole($"{player.PlayerName} : {player.VoiceFlags.HasFlag(VoiceFlags.Muted)} : {player.VoiceFlags.HasFlag(VoiceFlags.ListenAll)} : {player.VoiceFlags.HasFlag(VoiceFlags.ListenTeam)}");
         } 
+    }
+
+    [RequiresPermissions("@jail/debug")]
+    public static void test_lr_inc(CCSPlayerController? invoke, CommandInfo command)
+    {
+        JailPlugin.win_lr(invoke, LastRequest.LRType.KNIFE);
     }
 
     // are these commands allowed or not?

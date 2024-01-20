@@ -211,6 +211,8 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         register_listener();
 
+        JailPlayer.setup_db();
+
         Console.WriteLine("Sucessfully started JB");
 
         AddTimer(Warden.LASER_TIME,warden.laser_tick,CSTimer.TimerFlags.REPEAT);
@@ -218,9 +220,12 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
     void stat_db_reload()
     {
-        var database = jail_stats.connect_db();
+        Task.Run(async () => 
+        {
+            var database = await jail_stats.connect_db();
 
-        jail_stats.setup_db(database);
+            jail_stats.setup_db(database);
+        });
     }
 
     public void OnConfigParsed(JailConfig config)
@@ -237,6 +242,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         JailPlayer.config = config;
 
         lr.lr_config_reload();
+        stat_db_reload();
     }
 
     void register_listener()
@@ -258,6 +264,8 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
         AddCommand("css_wub","warden : disable block",warden.wub_cmd);
         AddCommand("css_wb","warden : enable block",warden.wb_cmd);
+        AddCommand("css_marker_colour", "set laser colour", warden.marker_colour_cmd);
+        AddCommand("css_laser_colour", "set laser colour", warden.laser_colour_cmd);
 
         AddCommand("css_swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
 
@@ -267,7 +275,6 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
 
         AddCommand("css_guns","give ct guns",warden.cmd_ct_guns);
-
         AddCommand("css_force_open","force open every door and vent",warden.force_open_cmd);
         AddCommand("css_force_close","force close every door",warden.force_close_cmd);
 
@@ -296,12 +303,21 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
             AddCommand("css_hide_weapon_debug","debug : hide player weapon on back",Debug.hide_weapon_cmd);
             AddCommand("css_rig","debug : force player to boss on sd",sd.sd_rig_cmd);
             AddCommand("css_is_muted","debug : print voice flags",Debug.is_muted_cmd);
+            AddCommand("css_spam_db","debug : spam db",Debug.test_lr_inc);
+
         }
     }
 
     public HookResult join_team(CCSPlayerController? invoke, CommandInfo command)
     {
-        jail_stats.connect(invoke);
+        jail_stats.load_player(invoke);
+
+        JailPlayer? jail_player = warden.jail_player_from_player(invoke);
+
+        if(jail_player != null)
+        {
+            jail_player.load_player(invoke);
+        }        
         
         if(!warden.join_team(invoke,command))
         {
@@ -319,7 +335,6 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         RegisterEventHandler<EventWeaponFire>(OnWeaponFire);
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
-        RegisterEventHandler<EventPlayerConnect>(OnPlayerConnect);
         RegisterEventHandler<EventTeamchangePending>(OnSwitchTeam);
         RegisterEventHandler<EventMapTransition>(OnMapChange);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath,HookMode.Pre);
@@ -340,6 +355,9 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         HookEntityOutput("func_button", "OnPressed", OnButtonPressed);
         
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
+        RegisterListener<Listeners.OnClientAuthorized>(OnClientAuthorized);
+
+        AddCommandListener("player_ping", CommandListener_RadioCommand);
 
         AddCommandListener("player_ping", CommandListener_RadioCommand);
 
@@ -570,16 +588,21 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         return HookResult.Continue;
     }
 
-    HookResult OnPlayerConnect(EventPlayerConnect @event, GameEventInfo info)
+    public void OnClientAuthorized(int slot, SteamID steamid)
     {
-        CCSPlayerController? player = @event.Userid;
+        CCSPlayerController? player = Utilities.GetPlayerFromSlot(slot);
 
         if(player != null && player.is_valid())
         {
-            jail_stats.connect(player);
-        }
+            jail_stats.load_player(player);
+            
+            JailPlayer? jail_player = warden.jail_player_from_player(player);
 
-        return HookResult.Continue;
+            if(jail_player != null)
+            {
+                jail_player.load_player(player);
+            }
+        }
     }
 
     HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)

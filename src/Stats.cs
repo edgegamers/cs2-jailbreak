@@ -120,7 +120,8 @@ public class JailStats
 
     async void insert_player(String steam_id, String player_name)
     {
-        var database = connect_db();
+        var database = await connect_db();
+
 
         if(database == null)
         {
@@ -128,7 +129,8 @@ public class JailStats
         }
 
         // insert new player
-        var insert_player = new MySqlCommand("INSERT IGNORE INTO stats (steamid,name) VALUES (@steam_id, @name)",database);
+        using var insert_player = new MySqlCommand("INSERT IGNORE INTO stats (steamid,name) VALUES (@steam_id, @name)",database);
+
         insert_player.Parameters.AddWithValue("@steam_id",steam_id);
         insert_player.Parameters.AddWithValue("@name",player_name);
 
@@ -143,14 +145,25 @@ public class JailStats
         }
     }
 
-    public async void inc_db(CCSPlayerController? player,LastRequest.LRType type, bool win)
+    public void inc_db(CCSPlayerController? player,LastRequest.LRType type, bool win)
     {
         if(player == null || !player.is_valid() || type == LastRequest.LRType.NONE)
         {
             return;
         }
 
-        var database = connect_db();
+        String steam_id = new SteamID(player.SteamID).SteamId2;
+
+        // make sure this doesn't block the main thread
+        Task.Run(async () =>
+        {
+            await inc_db_async(steam_id,type,win);
+        });
+    }
+
+    public async Task inc_db_async(String steam_id,LastRequest.LRType type, bool win)
+    {
+        var database = await connect_db();
 
         if(database == null)
         {
@@ -169,16 +182,14 @@ public class JailStats
             name += "_loss";
         }
 
-        String steam_id = new SteamID(player.SteamID).SteamId2;
+        using var inc_stat = new MySqlCommand($"UPDATE stats SET {name} = {name} + 1 WHERE steamid = @steam_id",database);
 
-
-
-        var inc_stat = new MySqlCommand($"UPDATE stats SET {name} = {name} + 1 WHERE steamid = @steam_id",database);
         inc_stat.Parameters.AddWithValue("@steam_id",steam_id);
 
         try 
         {
-            Console.WriteLine($"increment {player.PlayerName} : {steam_id} : {name} : {win}");
+            Console.WriteLine($"increment {steam_id} : {name} : {win}");
+
             await inc_stat.ExecuteNonQueryAsync();
         } 
         
@@ -188,25 +199,21 @@ public class JailStats
         }
     }
 
-    async void read_stats(ulong id, String steam_id, String player_name)
+    void read_stats(ulong id, String steam_id, String player_name)
     {
-        var database = connect_db();
-
-        if(database == null)
-        {
-            return;
-        }
-
-        // repull player from steamid if they are still around
+         // repull player from steamid if they are still around
         CCSPlayerController? player = Utilities.GetPlayerFromSteamId(id);
+        
         int? slot_opt = player.slot();
 
-        if(slot_opt == null)
+        if(slot_opt == null || !player.is_valid())
+
         {
             return;
         }
 
         int slot = slot_opt.Value;
+
 
         // allready cached we dont care
         if(player_stats[slot].cached)
@@ -214,8 +221,24 @@ public class JailStats
             return;
         }
 
+        // make sure this doesn't block the main thread
+        Task.Run(async () =>
+        {
+            await read_stats_async(steam_id,player_name,slot);
+        });     
+    }
+
+    async Task read_stats_async(String steam_id, String player_name, int slot)
+    {
+        var database = await connect_db();
+
+        if(database == null)
+        {
+            return;
+        }
+
         // query steamid
-        var query_steam_id = new MySqlCommand("SELECT * FROM stats WHERE steamid = @steam_id",database);
+        using var query_steam_id = new MySqlCommand("SELECT * FROM stats WHERE steamid = @steam_id",database);
         query_steam_id.Parameters.AddWithValue("@steam_id",steam_id);
 
         try
@@ -224,11 +247,6 @@ public class JailStats
             
             if(reader.Read())
             {
-                if(player == null || !player.is_valid() || slot_opt == null)
-                {
-                    return;
-                }
-
                 //Console.WriteLine($"reading out lr stats {player.PlayerName}");
 
                 for(int i = 0; i < LastRequest.LR_SIZE; i++)
@@ -260,7 +278,7 @@ public class JailStats
         }
     }
 
-    public void connect(CCSPlayerController? player)
+    public void load_player(CCSPlayerController? player)
     {
         if(player == null || !player.is_valid())
         {
@@ -279,16 +297,17 @@ public class JailStats
     {
         if(database == null)
         {
+            Console.WriteLine("Could not open jb database");
             return;
         }
 
         // Make sure Table exists
-        var table_cmd = new MySqlCommand("CREATE TABLE IF NOT EXISTS stats (steamid varchar(64) PRIMARY KEY,name varchar(64))",database);
+        using var table_cmd = new MySqlCommand("CREATE TABLE IF NOT EXISTS stats (steamid varchar(64) PRIMARY KEY,name varchar(64))",database);
         table_cmd.ExecuteNonQuery();
 
         // Check table size to see if we have the right number of LR's
         // if we dont make the extra tables
-        var col_cmd = new MySqlCommand("SHOW COLUMNS FROM stats",database);
+        using var col_cmd = new MySqlCommand("SHOW COLUMNS FROM stats",database);
         var col_reader = col_cmd.ExecuteReader();
 
         int row_count = 0;
@@ -312,10 +331,10 @@ public class JailStats
                 {
                     // NOTE: could use NOT Exists put old sql versions dont play nice
                     // ideally we would use an escaped statement but these strings aernt user controlled anyways
-                    var insert_table_win = new MySqlCommand($"ALTER TABLE stats ADD COLUMN {name + "_win"} int DEFAULT 0",database);
+                    using var insert_table_win = new MySqlCommand($"ALTER TABLE stats ADD COLUMN {name + "_win"} int DEFAULT 0",database);
                     insert_table_win.ExecuteNonQuery();
 
-                    var insert_table_loss = new MySqlCommand($"ALTER TABLE stats ADD COLUMN {name + "_loss"} int DEFAULT 0",database);
+                    using var insert_table_loss = new MySqlCommand($"ALTER TABLE stats ADD COLUMN {name + "_loss"} int DEFAULT 0",database);
                     insert_table_loss.ExecuteNonQuery();
                 }
 
@@ -326,18 +345,24 @@ public class JailStats
 
         }
 
+        Console.WriteLine("Setup jb stats");
+
     }
 
-    public MySqlConnection? connect_db()
+    public async Task<MySqlConnection?> connect_db()
     {
+        // No credentials don't even try a connection
+        if(config.username == "")
+        {
+            return null;
+        }
+
         try
         {
-
             MySqlConnection? database = new MySqlConnection(
                 $"Server={config.server};User ID={config.username};Password={config.password};Database={config.database};Port={config.port}");
 
-            database.Open();
-
+            await database.OpenAsync();
             return database;
         }
 

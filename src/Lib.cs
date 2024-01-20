@@ -977,35 +977,59 @@ public static class Lib
         return new Vector((float)(mid.X + (r * Math.Cos(angle))),(float)(mid.Y + (r * Math.Sin(angle))), mid.Z + 6.0f);
     }
 
-    static public int[] draw_marker(float X,float Y, float Z,float time)
+    static public int[] draw_marker(float X,float Y, float Z, float r,float time, Color colour)
     {
+       
+        int[] line = new int[30];
+        int lines = line.Count();
+
         Vector mid =  new Vector(X,Y,Z);
-
-        int lines = 30;
-        int[] ent = new int[lines];
-
 
         // draw piecewise approx by stepping angle
         // and joining points with a dot to dot
         float step = (float)(2.0f * Math.PI) / (float)lines;
-        float r = 75.0f;
 
         float angle_old = 0.0f;
         float angle_cur = step;
-
 
         for(int i = 0; i < lines; i++)
         {
             Vector start = angle_on_circle(angle_old,r,mid);
             Vector end = angle_on_circle(angle_cur,r,mid);
 
-            ent[i] = Lib.draw_laser(start,end,time,2.0f,Lib.CYAN);
-
+            line[i] = Lib.draw_laser(start,end,time,2.0f,colour);
+            
             angle_old = angle_cur;
             angle_cur += step;
         }
 
-        return ent;
+        return line;
+    }
+
+    static void move_laser_by_index(int laser_index,Vector start, Vector end)
+    {
+        CEnvBeam? laser = Utilities.GetEntityFromIndex<CEnvBeam>(laser_index);
+        if(laser != null && laser.DesignerName == "env_beam")
+        {
+            laser.move(start,end);
+        }
+    }
+
+    static public int update_laser(int laser_index,Vector start,Vector end,Color color)
+    {
+        // make new laser
+        if(laser_index == -1)
+        {
+            return Lib.draw_laser(start,end,0.0f,2.0f,color);
+        }
+
+        // update laser by moving
+        else
+        {
+            move_laser_by_index(laser_index,start,end);
+        }
+
+        return laser_index;
     }
 
     static public void destroy_beam_group(int[] ent)
@@ -1065,10 +1089,27 @@ public static class Lib
         }
     }
 
+    // TODO: just go with a simple print for now
+    static public void log(String str)
+    {
+        Console.WriteLine($"[JAILBREAK]: {str}");
+    }
+
 
     public static readonly Color CYAN = Color.FromArgb(255, 153, 255, 255);
     public static readonly Color RED = Color.FromArgb(255, 255, 0, 0);
     public static readonly Color INVIS = Color.FromArgb(0, 255, 255, 255);
+
+    public static readonly Dictionary<string,Color> LASER_CONFIG_MAP = new Dictionary<string,Color>()
+    {
+        {"Cyan",Lib.CYAN}, // cyan
+        {"Pink",Color.FromArgb(255,255,192,203)} , // pink
+        {"Red",Lib.RED}, // red
+        {"Purple",Color.FromArgb(255,118, 9, 186)}, // purple
+        {"Grey",Color.FromArgb(255,66, 66, 66)}, // grey
+        {"Green",Color.FromArgb(255,0, 191, 0)}, // green
+        {"Yellow",Color.FromArgb(255,255, 255, 0)} // yellow
+    };
 
     static ConVar? block_cvar = ConVar.Find("mp_solid_teammates");
     static ConVar? ff = ConVar.Find("mp_teammates_are_enemies");

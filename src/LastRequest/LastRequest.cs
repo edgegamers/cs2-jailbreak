@@ -25,7 +25,7 @@ using CSTimer = CounterStrikeSharp.API.Modules.Timers;
 */
 
 
-public class LastRequest
+public partial class LastRequest
 {
     public LastRequest()
     {
@@ -55,7 +55,7 @@ public class LastRequest
         }
     }
 
-    void init_player_common(CCSPlayerController? player)
+    void init_player_common(CCSPlayerController? player, String lr_name)
     {
         if(!player.is_valid_alive() || player == null)
         {
@@ -67,6 +67,8 @@ public class LastRequest
         player.set_armour(100);
         player.strip_weapons(true);
         player.GiveNamedItem("item_assaultsuit");
+
+        player.announce(LR_PREFIX,$"{lr_name} is starting\n");
     }
 
     bool lr_exists(LRBase lr)
@@ -246,8 +248,8 @@ public class LastRequest
         }
 
         // do common player setup
-        init_player_common(t_player);
-        init_player_common(ct_player); 
+        init_player_common(t_player,t_lr.lr_name);
+        init_player_common(ct_player,ct_lr.lr_name); 
 
         // bind lr pair
         t_lr.partner = ct_lr;
@@ -255,6 +257,8 @@ public class LastRequest
 
         active_lr[slot] = t_lr;
         
+        Lib.log($"{t_lr.lr_name} {t_player.PlayerName} vs {ct_player.PlayerName} started");
+
         // begin counting down the lr
         t_lr.countdown_start();
     }
@@ -747,166 +751,35 @@ public class LastRequest
 
         choice.option = name;
 
+        List<CCSPlayerController> target;
+
         // Debugging pick t's
         if(choice.bypass && player.is_ct())
         {
-
-            // scan for avaiable CT's that are alive and add as choice
-            var alive_t = Lib.get_alive_t();
-
-            String lr_name = LR_NAME[(int)choice.type];
-            var lr_menu = new ChatMenu($"Partner Menu ({lr_name})");
-
-            foreach(var t in alive_t)
-            {
-                if(!t.is_valid() || in_lr(t))
-                {
-                    continue;
-                }
-
-                lr_menu.AddMenuOption(t.PlayerName, finialise_choice);
-            }
-
-            ChatMenus.OpenMenu(player, lr_menu);
+            target = Lib.get_alive_t();
         }
 
         else
         {
+            target = Lib.get_alive_ct();
+        }   
 
-            // scan for avaiable CT's that are alive and add as choice
-            var alive_ct = Lib.get_alive_ct();
+        String lr_name = LR_NAME[(int)choice.type];
+        var lr_menu = new ChatMenu($"Partner Menu ({lr_name})");
 
-            String lr_name = LR_NAME[(int)choice.type];
-            var lr_menu = new ChatMenu($"Partner Menu ({lr_name})");
-
-            foreach(var ct in alive_ct)
+        foreach(var partner in target)
+        {
+            if(!partner.is_valid() || in_lr(partner))
             {
-                if(!ct.is_valid() || in_lr(ct))
-                {
-                    continue;
-                }
-
-                lr_menu.AddMenuOption(ct.PlayerName, finialise_choice);
+                continue;
             }
 
-            ChatMenus.OpenMenu(player, lr_menu);
+            lr_menu.AddMenuOption(partner.PlayerName, finialise_choice);
         }
+
+        ChatMenus.OpenMenu(player, lr_menu);
     }
 
-    bool can_rebel()
-    {
-        return Lib.alive_t_count() == 1;
-    }
-
-    public void rebel_guns(CCSPlayerController player, ChatMenuOption option)
-    {
-        if(player == null || !player.is_valid())
-        {
-            return;
-        }
-
-        if(!can_rebel() || rebel_type != RebelType.NONE)
-        {
-            player.localise_prefix(LR_PREFIX,"lr.rebel_last");
-            return;
-        }
-
-        player.strip_weapons();
-
-        player.GiveNamedItem("weapon_" + Lib.gun_give_name(option.Text));
-        player.GiveNamedItem("weapon_deagle");
-
-        player.GiveNamedItem("item_assaultsuit");
-    
-        player.set_health(Lib.alive_ct_count() * 100);
-
-        rebel_type = RebelType.REBEL;
-
-        Lib.localise_announce(LR_PREFIX,"lr.player_name",player.PlayerName);
-    }
-
-    public void start_rebel(CCSPlayerController? player, ChatMenuOption option)
-    {
-        if(player == null || !player.is_valid())
-        {
-            return;
-        }
-
-        player.gun_menu_internal(false,rebel_guns);
-    }
-
-    public void start_knife_rebel(CCSPlayerController? rebel, ChatMenuOption option)
-    {
-        if(rebel == null || !rebel.is_valid())
-        {
-            return;
-        }
-
-        if(!can_rebel())
-        {
-            rebel.localise_prefix(LR_PREFIX,"rebel.last_alive");
-            return;
-        }
-
-        rebel_type = RebelType.KNIFE;
-
-        Lib.localise_announce(LR_PREFIX,"lr.knife_rebel",rebel.PlayerName);
-        rebel.set_health(Lib.alive_ct_count() * 100);
-
-        foreach(CCSPlayerController? player in Utilities.GetPlayers())
-        {
-            if(player != null && player.is_valid_alive())
-            {
-                player.strip_weapons();
-            }
-        }
-    }
-
-    public void riot_respawn()
-    {
-        // riot cancelled in mean time
-        if(rebel_type != RebelType.RIOT)
-        {
-            return;
-        }
-
-
-        Lib.localise_announce(LR_PREFIX,"lr.riot_active");
-
-        foreach(CCSPlayerController? player in Utilities.GetPlayers())
-        {
-            if(player != null && player.is_valid() && !player.is_valid_alive())
-            {
-                Server.PrintToChatAll($"Respawn {player.PlayerName}");
-                player.Respawn();
-            }
-        }
-    }
-
-
-    public void start_riot(CCSPlayerController? rebel, ChatMenuOption option)
-    {
-        if(rebel == null || !rebel.is_valid())
-        {
-            return;
-        }
-
-        if(!can_rebel())
-        {
-            rebel.localise_prefix(LR_PREFIX,"lr.rebel_last");
-            return;
-        }
-
-
-        rebel_type = RebelType.RIOT;
-
-        Lib.localise_announce(LR_PREFIX,"lr.riot_start");
-
-        if(JailPlugin.global_ctx != null)
-        {
-            JailPlugin.global_ctx.AddTimer(15.0f,riot_respawn,CSTimer.TimerFlags.STOP_ON_MAPCHANGE);
-        }
-    }
 
     public void add_lr(ChatMenu menu, bool cond, LRType type)
     {
@@ -1071,15 +944,6 @@ public class LastRequest
         public bool bypass = false;
     } 
 
-    enum RebelType
-    {
-        NONE,
-        REBEL,
-        KNIFE,
-        RIOT,
-    };
-
-    RebelType rebel_type = RebelType.NONE;
 
     public JailConfig config = new JailConfig();
 
