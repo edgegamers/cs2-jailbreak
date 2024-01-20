@@ -977,7 +977,6 @@ public static class Lib
         return new Vector((float)(mid.X + (r * Math.Cos(angle))),(float)(mid.Y + (r * Math.Sin(angle))), mid.Z + 6.0f);
     }
 
-
     static public int[] draw_marker(float X,float Y, float Z, float r,float time, Color colour)
     {
        

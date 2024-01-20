@@ -296,6 +296,8 @@ public class JailPlayer
         // ignore weapons players are meant to have
         if(!weapon.Contains("knife") && !weapon.Contains("c4"))
         {
+            if(config.rebel_requirehit)
+                return;
             set_rebel(player);
         }
     }

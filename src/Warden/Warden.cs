@@ -629,8 +629,6 @@ public partial class Warden
         return jail_players[slot.Value];
     }
     
-    // public static readonly float LASER_TIME = 0.1f;
-
     const int INAVLID_SLOT = -3;   
 
     int warden_slot = INAVLID_SLOT;

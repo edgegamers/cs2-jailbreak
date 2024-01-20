@@ -275,7 +275,6 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
 
         AddCommand("css_guns","give ct guns",warden.cmd_ct_guns);
-
         AddCommand("css_force_open","force open every door and vent",warden.force_open_cmd);
         AddCommand("css_force_close","force close every door",warden.force_close_cmd);
 
@@ -305,6 +304,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
             AddCommand("css_rig","debug : force player to boss on sd",sd.sd_rig_cmd);
             AddCommand("css_is_muted","debug : print voice flags",Debug.is_muted_cmd);
             AddCommand("css_spam_db","debug : spam db",Debug.test_lr_inc);
+
         }
     }
 
@@ -318,7 +318,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         {
             jail_player.load_player(invoke);
         }        
-
+        
         if(!warden.join_team(invoke,command))
         {
             return HookResult.Stop;
@@ -356,6 +356,8 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
         RegisterListener<Listeners.OnClientAuthorized>(OnClientAuthorized);
+
+        AddCommandListener("player_ping", CommandListener_RadioCommand);
 
         AddCommandListener("player_ping", CommandListener_RadioCommand);
 
