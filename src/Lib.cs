@@ -318,6 +318,7 @@ public static class Lib
         if(pawn != null && player.is_valid_alive())
         {
             pawn.RenderMode = RenderMode_t.kRenderTransColor;
+            colour = Color.FromArgb(pawn.Render.A,colour.R,colour.G,colour.B);
             pawn.Render = colour;
             Utilities.SetStateChanged(pawn,"CBaseModelEntity","m_clrRender");
         }
@@ -965,7 +966,6 @@ public static class Lib
         // NOTE: we offset Z so it doesn't clip into the ground
         return new Vector((float)(mid.X + (r * Math.Cos(angle))),(float)(mid.Y + (r * Math.Sin(angle))), mid.Z + 6.0f);
     }
-
 
     static public int[] draw_marker(float X,float Y, float Z, float r,float time, Color colour)
     {

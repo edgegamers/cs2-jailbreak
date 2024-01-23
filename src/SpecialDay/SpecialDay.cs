@@ -275,7 +275,7 @@ public class SpecialDay
         }
     }
 
-    [RequiresPermissions("@css/generic")]
+    [RequiresPermissions("@css/root")]
     public void cancel_sd_cmd(CCSPlayerController? player,CommandInfo command)
     {
         end_sd(true);
@@ -323,7 +323,7 @@ public class SpecialDay
         }
     }   
 
-    [RequiresPermissions("@css/generic")]
+    [RequiresPermissions("@css/root")]
     public void sd_cmd(CCSPlayerController? player,CommandInfo command)
     {
         override_ff = false;
@@ -331,7 +331,7 @@ public class SpecialDay
         sd_cmd_internal(player,command);
     }   
 
-    [RequiresPermissions("@css/generic")]
+    [RequiresPermissions("@css/root")]
     public void sd_ff_cmd(CCSPlayerController? player,CommandInfo command)
     {
         override_ff = true;

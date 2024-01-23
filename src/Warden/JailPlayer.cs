@@ -42,6 +42,7 @@ public class JailPlayer
 
                 // start populating our fields
                 foreach (var cmd in col_cmd)
+
                 {
                     var col = connection.CreateCommand();
                     col.CommandText = cmd;
@@ -54,6 +55,7 @@ public class JailPlayer
                     }
 
                     catch { }
+
                 }
             }
         }
@@ -103,7 +105,6 @@ public class JailPlayer
 
                 await insert_player.ExecuteNonQueryAsync();
             }
-
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
@@ -302,10 +303,12 @@ public class JailPlayer
         {
             return;
         }
-
+      
         // ignore weapons players are meant to have
         if (!weapon.Contains("knife") && !weapon.Contains("c4"))
         {
+            if(config.rebel_requirehit)
+                return;
             set_rebel(player);
         }
     }

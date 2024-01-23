@@ -129,6 +129,7 @@ public class JailStats
 
         // insert new player
         using var insert_player = new MySqlCommand("INSERT IGNORE INTO stats (steamid,name) VALUES (@steam_id, @name)",database);
+
         insert_player.Parameters.AddWithValue("@steam_id",steam_id);
         insert_player.Parameters.AddWithValue("@name",player_name);
 
@@ -181,11 +182,13 @@ public class JailStats
         }
 
         using var inc_stat = new MySqlCommand($"UPDATE stats SET {name} = {name} + 1 WHERE steamid = @steam_id",database);
+
         inc_stat.Parameters.AddWithValue("@steam_id",steam_id);
 
         try 
         {
             Console.WriteLine($"increment {steam_id} : {name} : {win}");
+
             await inc_stat.ExecuteNonQueryAsync();
         } 
         
@@ -195,7 +198,6 @@ public class JailStats
         }
     }
 
-
     void read_stats(ulong id, String steam_id, String player_name)
     {
          // repull player from steamid if they are still around
@@ -204,6 +206,7 @@ public class JailStats
         int? slot_opt = player.slot();
 
         if(slot_opt == null || !player.is_valid())
+
         {
             return;
         }

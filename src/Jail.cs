@@ -313,18 +313,17 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         // debug 
         if(Debug.enable)
         {
-            AddCommand("nuke","debug : kill every player",Debug.nuke);
-            AddCommand("is_rebel","debug : print rebel state to console",warden.is_rebel_cmd);
-            AddCommand("lr_debug","debug : start an lr without restriction",lr.lr_debug_cmd);
-            AddCommand("is_blocked","debug : print block state",warden.block.is_blocked);
-            AddCommand("test_laser","test laser",Debug.test_laser);
-            AddCommand("test_strip","test weapon strip",Debug.test_strip_cmd);
-            AddCommand("join_ct_debug","debug : force join ct",Debug.join_ct_cmd);
-            AddCommand("hide_weapon_debug","debug : hide player weapon on back",Debug.hide_weapon_cmd);
-            AddCommand("rig","debug : force player to boss on sd",sd.sd_rig_cmd);
-            AddCommand("is_muted","debug : print voice flags",Debug.is_muted_cmd);
-            AddCommand("spam_db","debug : spam db",Debug.test_lr_inc);
-            AddCommand("wsd_enable","debug : enable wsd",Debug.wsd_enable_cmd);
+            AddCommand("css_nuke","debug : kill every player",Debug.nuke);
+            AddCommand("css_is_rebel","debug : print rebel state to console",warden.is_rebel_cmd);
+            AddCommand("css_lr_debug","debug : start an lr without restriction",lr.lr_debug_cmd);
+            AddCommand("css_is_blocked","debug : print block state",warden.block.is_blocked);
+            AddCommand("css_test_laser","test laser",Debug.test_laser);
+            AddCommand("css_test_strip","test weapon strip",Debug.test_strip_cmd);
+            AddCommand("css_join_ct_debug","debug : force join ct",Debug.join_ct_cmd);
+            AddCommand("css_hide_weapon_debug","debug : hide player weapon on back",Debug.hide_weapon_cmd);
+            AddCommand("css_rig","debug : force player to boss on sd",sd.sd_rig_cmd);
+            AddCommand("css_is_muted","debug : print voice flags",Debug.is_muted_cmd);
+            AddCommand("css_spam_db","debug : spam db",Debug.test_lr_inc);
         }
     }
 
@@ -377,10 +376,16 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
         RegisterListener<Listeners.OnClientAuthorized>(OnClientAuthorized);
 
+        AddCommandListener("player_ping", CommandListener_RadioCommand);
+
         // TODO: need to hook weapon drop
     }
 
-    HookResult OnPlayerPing(EventPlayerPing  @event, GameEventInfo info)
+    HookResult CommandListener_RadioCommand(CCSPlayerController? player, CommandInfo info) {
+        return is_warden(player) ? HookResult.Continue: HookResult.Stop;
+    }
+
+    HookResult OnPlayerPing(EventPlayerPing  @event, GameEventInfo inf)
     {
         var player = @event.Userid;
 
@@ -389,7 +394,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
             warden.ping(player,@event.X,@event.Y,@event.Z);
         }
 
-        return HookResult.Continue;
+        return HookResult.Stop;
     }
 
     void OnClientVoice(int slot)
