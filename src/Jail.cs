@@ -325,6 +325,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
             AddCommand("css_rig","debug : force player to boss on sd",sd.sd_rig_cmd);
             AddCommand("css_is_muted","debug : print voice flags",Debug.is_muted_cmd);
             AddCommand("css_spam_db","debug : spam db",Debug.test_lr_inc);
+
         }
     }
 

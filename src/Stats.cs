@@ -362,7 +362,6 @@ public class JailStats
                 $"Server={config.server};User ID={config.username};Password={config.password};Database={config.database};Port={config.port}");
 
             await database.OpenAsync();
-
             return database;
         }
 
