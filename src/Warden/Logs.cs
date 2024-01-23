@@ -27,6 +27,7 @@ public class Logs
             if (!player.IsValid || player.IsBot || player.IsHLTV) continue;
             printLogs(player);
         }
+        logs.Clear();
         return HookResult.Continue;
     }
 
@@ -41,7 +42,6 @@ public class Logs
     private void printLogs(Delegate printFunction)
     {
         printFunction.DynamicInvoke("********************************");
-        printFunction.DynamicInvoke("********************************");
         printFunction.DynamicInvoke("***** BEGIN JAILBREAK LOGS *****");
         printFunction.DynamicInvoke("********************************");
         foreach (string log in logs)
@@ -55,14 +55,13 @@ public class Logs
 
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
-        logs.Clear();
         roundStart = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         return HookResult.Continue;
     }
 
     public void Add(string log)
     {
-        string format = $"[{DateTimeOffset.UtcNow.ToUnixTimeSeconds() - roundStart}:mm\\:ss] {log}";
+        string format = $"[{DateTimeOffset.UtcNow.ToUnixTimeSeconds() - roundStart:mm\\:ss}] {log}";
         logs.Add(format);
     }
 
@@ -73,12 +72,14 @@ public class Logs
 
     public void AddLocalized(CCSPlayerController source, string key, params object[] args)
     {
-        Add(plugin.Localizer[key, source.PlayerName, GetPlayerRole(source), args]);
+        args = args.Prepend(GetPlayerRole(source)).Prepend(source.PlayerName).ToArray();
+        Add(plugin.Localizer[key, args]);
     }
 
     public void AddLocalized(CCSPlayerController source, CCSPlayerController target, string key, params object[] args)
     {
-        Add(plugin.Localizer[key, source.PlayerName, GetPlayerRole(source), target.PlayerName, GetPlayerRole(target), args]);
+        args = args.Prepend(GetPlayerRole(target)).Prepend(target.PlayerName).Prepend(GetPlayerRole(source)).Prepend(source.PlayerName).ToArray();
+        Add(plugin.Localizer[key, args]);
     }
 
 
