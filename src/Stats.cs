@@ -122,7 +122,6 @@ public class JailStats
     {
         var database = await connect_db();
 
-
         if(database == null)
         {
             return;
@@ -147,7 +146,7 @@ public class JailStats
 
     public void inc_db(CCSPlayerController? player,LastRequest.LRType type, bool win)
     {
-        if(player == null || !player.is_valid() || type == LastRequest.LRType.NONE)
+        if(player == null || !player.is_valid() || type == LastRequest.LRType.NONE  || player.IsBot)
         {
             return;
         }
@@ -363,6 +362,7 @@ public class JailStats
                 $"Server={config.server};User ID={config.username};Password={config.password};Database={config.database};Port={config.port}");
 
             await database.OpenAsync();
+
             return database;
         }
 
