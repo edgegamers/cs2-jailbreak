@@ -59,6 +59,8 @@ public partial class Warden
 
         // change player color!
         player.set_colour(Color.FromArgb(255, 0, 0, 255));
+
+        JailPlugin.logs.AddLocalized("warden.took_warden", player.PlayerName);
     }
 
     public bool is_warden(CCSPlayerController? player)
@@ -82,6 +84,7 @@ public partial class Warden
 
             player.set_colour(Color.FromArgb(255, 255, 255, 255));
             Lib.localise_announce(WARDEN_PREFIX,"warden.removed",player.PlayerName);
+            JailPlugin.logs.AddLocalized("warden.removed", player.PlayerName);
         }
 
         remove_warden_internal();
@@ -276,6 +279,8 @@ public partial class Warden
         player.localise("warden.remove_warden_command_desc");
         player.localise("warden.laser_colour_command_desc");
         player.localise("warden.marker_colour_command_desc");
+        player.localise("warden.wsd_command_desc");
+        player.localise("warden.wsd_ff_command_desc");
     }
 
     public void take_warden_cmd(CCSPlayerController? player, CommandInfo command)
@@ -368,9 +373,13 @@ public partial class Warden
     {
         Server.ExecuteCommand("mp_force_pick_time 3000");
         Server.ExecuteCommand("mp_autoteambalance 0");
-        Server.ExecuteCommand("mp_equipment_reset_rounds 1");
-        Server.ExecuteCommand("mp_t_default_secondary \"\" ");
-        Server.ExecuteCommand("mp_ct_default_secondary \"\" ");
+
+        if(config.strip_spawn_weapons)
+        {
+            Server.ExecuteCommand("mp_equipment_reset_rounds 1");
+            Server.ExecuteCommand("mp_t_default_secondary \"\" ");
+            Server.ExecuteCommand("mp_ct_default_secondary \"\" ");
+        }
     }
 
     public void round_start()
@@ -457,15 +466,24 @@ public partial class Warden
             return;
         }
 
-        // cvars take care of this for us now
-        // player.strip_weapons();
+        // strip weapons just in case
+        if(config.strip_spawn_weapons)
+        {
+            player.strip_weapons();
+        }
 
         if(player.is_ct())
         {
             if(config.ct_guns)
             {
+                var jail_player = jail_player_from_player(player);
+
                 player.GiveNamedItem("weapon_deagle");
-                player.GiveNamedItem("weapon_m4a1");
+
+                if(jail_player != null)
+                {
+                    player.GiveNamedItem(Lib.gun_give_name(jail_player.ct_gun));
+                }
             }
 
             if(config.ct_armour)
@@ -518,6 +536,22 @@ public partial class Warden
         remove_warden();
     }
 
+    [RequiresPermissions("@css/generic")]
+    public void fire_guard_cmd(CCSPlayerController? invoke, CommandInfo command)
+    {
+        Lib.localise_announce(WARDEN_PREFIX,"warden.fire_guard");
+
+        // swap every guard apart from warden to T
+        List<CCSPlayerController> players = Utilities.GetPlayers();
+        var valid = players.FindAll(player => player.is_valid() && player.is_ct() && !is_warden(player));
+
+        foreach(var player in valid)
+        {
+            player.slay();
+            player.SwitchTeam(CsTeam.Terrorist);
+        }
+    }
+
     public void death(CCSPlayerController? player, CCSPlayerController? killer)
     {
         // player is no longer on server
@@ -558,8 +592,16 @@ public partial class Warden
 
         player.strip_weapons();
 
+   
+        var jail_player = jail_player_from_player(player);
 
-        player.GiveNamedItem("weapon_" + Lib.gun_give_name(option.Text));
+        if(jail_player != null)
+        {
+            jail_player.update_player(player, "ct_gun", option.Text);
+            jail_player.ct_gun = option.Text;
+        }
+
+        player.GiveNamedItem(Lib.gun_give_name(option.Text));
         player.GiveNamedItem("weapon_deagle");
 
         if(config.ct_armour)
@@ -639,7 +681,7 @@ public partial class Warden
 
     public JailConfig config = new JailConfig();
 
-    JailPlayer[] jail_players = new JailPlayer[64];
+    public JailPlayer[] jail_players = new JailPlayer[64];
 
     public Warday warday = new Warday();
     public Block block = new Block();

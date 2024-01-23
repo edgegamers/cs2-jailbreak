@@ -65,6 +65,8 @@ public class JailConfig : BasePluginConfig
     [JsonPropertyName("warden_force_removal")]
     public bool warden_force_removal { get; set; } = true;
 
+    [JsonPropertyName("strip_spawn_weapons")]
+    public bool strip_spawn_weapons { get; set; } = true;
 
     [JsonPropertyName("warday_guns")]
     public bool warday_guns { get; set; } = false;
@@ -121,6 +123,9 @@ public class JailConfig : BasePluginConfig
 
     [JsonPropertyName("rebel_requirehit")]
     public bool rebel_requirehit { get; set; } = false;
+
+    [JsonPropertyName("wsd_round")]
+    public int wsd_round { get; set; } = 50;
 }
 
 // main plugin file, controls central hooking
@@ -199,11 +204,12 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
 
     public override string ModuleName => "CS2 Jailbreak - destoer";
 
-    public override string ModuleVersion => "v0.2.2";
+    public override string ModuleVersion => "v1.2.2";
 
     public override void Load(bool hotReload)
     {
         global_ctx = this;
+        logs = new Logs(this); 
 
         register_commands();
         
@@ -216,6 +222,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         Console.WriteLine("Sucessfully started JB");
 
         AddTimer(Warden.LASER_TIME,warden.laser_tick,CSTimer.TimerFlags.REPEAT);
+
     }
 
     void stat_db_reload()
@@ -241,6 +248,8 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         warden.warday.config = config;
         JailPlayer.config = config;
 
+        sd.config = config;
+
         lr.lr_config_reload();
         stat_db_reload();
     }
@@ -254,40 +263,52 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         });
     }
 
+    void add_localized_cmd(String base_name,String desc,CommandInfo.CommandCallback callback)
+    {
+        AddCommand("css_" + Localizer[base_name],desc,callback);
+    }
+
     void register_commands()
     {
         // reg warden comamnds
-        AddCommand("css_w", "take warden", warden.take_warden_cmd);
-        AddCommand("css_uw", "leave warden", warden.leave_warden_cmd);
-        AddCommand("css_rw", "remove warden", warden.remove_warden_cmd);
-        AddCommand("css_clear_marker", "remove warden marker",warden.remove_marker_cmd);
+        add_localized_cmd("warden.take_warden_cmd", "take warden", warden.take_warden_cmd);
+        add_localized_cmd("warden.leave_warden_cmd", "leave warden", warden.leave_warden_cmd);
+        add_localized_cmd("warden.remove_warden_cmd", "remove warden", warden.remove_warden_cmd);
+        add_localized_cmd("warden.remove_marker_cmd","remove warden marker",warden.remove_marker_cmd);
 
-        AddCommand("css_wub","warden : disable block",warden.wub_cmd);
-        AddCommand("css_wb","warden : enable block",warden.wb_cmd);
-        AddCommand("css_marker_colour", "set laser colour", warden.marker_colour_cmd);
-        AddCommand("css_laser_colour", "set laser colour", warden.laser_colour_cmd);
+        add_localized_cmd("warden.marker_colour_cmd", "set marker colour", warden.marker_colour_cmd);
+        add_localized_cmd("warden.laser_colour_cmd", "set laser colour", warden.laser_colour_cmd);
 
-        AddCommand("css_swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
+        add_localized_cmd("warden.no_block_cmd","warden : disable block",warden.wub_cmd);
+        add_localized_cmd("warden.block_cmd","warden : enable block",warden.wb_cmd);
 
-        AddCommand("css_wd","warden : start warday",warden.warday_cmd);
-        AddCommand("css_wcommands", "warden : show all commands",warden.cmd_info);
-        AddCommand("css_wtime", "how long as warden been active?", warden.warden_time_cmd);
+        add_localized_cmd("warden.sd_cmd","warden : call a special day",sd.warden_sd_cmd);
+        add_localized_cmd("warden.sd_ff_cmd","warden : call a friendly fire special day",sd.warden_sd_ff_cmd);
 
+        add_localized_cmd("warden.swap_guard","admin : move a player to ct",warden.swap_guard_cmd);
 
-        AddCommand("css_guns","give ct guns",warden.cmd_ct_guns);
-        AddCommand("css_force_open","force open every door and vent",warden.force_open_cmd);
-        AddCommand("css_force_close","force close every door",warden.force_close_cmd);
+        add_localized_cmd("warden.warday_cmd","warden : start warday",warden.warday_cmd);
+        add_localized_cmd("warden.list_cmd", "warden : show all commands",warden.cmd_info);
+        add_localized_cmd("warden.time_cmd","how long as warden been active?",warden.warden_time_cmd);
+
+        add_localized_cmd("warden.gun_cmd","give ct guns",warden.cmd_ct_guns);
+
+        add_localized_cmd("warden.force_open_cmd","force open every door and vent",warden.force_open_cmd);
+        add_localized_cmd("warden.force_close_cmd","force close every door",warden.force_close_cmd);
+
+        add_localized_cmd("warden.fire_guard_cmd","admin : Remove all guards apart from warden",warden.fire_guard_cmd);
 
         // reg lr commands
-        AddCommand("css_lr","start an lr",lr.lr_cmd);
-        AddCommand("css_cancel_lr","admin : cancel lr",lr.cancel_lr_cmd);
-        AddCommand("css_lr_stats","list lr stats",jail_stats.lr_stats_cmd);
+        add_localized_cmd("lr.start_lr_cmd","start an lr",lr.lr_cmd);
+        add_localized_cmd("lr.cancel_lr_cmd","admin : cancel lr",lr.cancel_lr_cmd);
+        add_localized_cmd("lr.stats_cmd","list lr stats",jail_stats.lr_stats_cmd);
 
         // reg sd commands
-        AddCommand("css_sd","start a sd",sd.sd_cmd);
-        AddCommand("css_sd_ff","start a ff sd",sd.sd_ff_cmd);
-        AddCommand("css_cancel_sd","cancel an sd",sd.cancel_sd_cmd);
+        add_localized_cmd("sd.start_cmd","start a sd",sd.sd_cmd);
+        add_localized_cmd("sd.start_ff_cmd","start a ff sd",sd.sd_ff_cmd);
+        add_localized_cmd("sd.cancel_cmd","cancel an sd",sd.cancel_sd_cmd);
 
+        add_localized_cmd("logs.logs_cmd", "show round logs", logs.LogsCommand);
         AddCommandListener("jointeam",join_team);
 
         // debug 
@@ -318,7 +339,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         {
             jail_player.load_player(invoke);
         }        
-        
+
         if(!warden.join_team(invoke,command))
         {
             return HookResult.Stop;
@@ -356,8 +377,6 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
         RegisterListener<Listeners.OnClientAuthorized>(OnClientAuthorized);
-
-        AddCommandListener("player_ping", CommandListener_RadioCommand);
 
         AddCommandListener("player_ping", CommandListener_RadioCommand);
 
@@ -401,6 +420,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         if(player != null && player.is_valid() && ent != null && ent.IsValid)
         {
             Lib.print_console_all($"{player.PlayerName} pressed button '{ent.Entity?.Name}' -> '{output?.Connections?.TargetDesc}'",true);
+            logs.AddLocalized(player, "logs.format.button", ent.Entity?.Name ?? "Unlabeled", output?.Connections?.TargetDesc ?? "None");
         }
 
         return HookResult.Continue;
@@ -419,6 +439,7 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
         {
             lr.grenade_thrown(player);
             sd.grenade_thrown(player);
+            logs.AddLocalized(player, "logs.format.grenade", @event.Weapon); 
         }
 
         return HookResult.Continue;
@@ -657,4 +678,5 @@ public class JailPlugin : BasePlugin, IPluginConfig<JailConfig>
     public static LastRequest lr = new LastRequest();
     public static SpecialDay sd = new SpecialDay();
     public static JailStats jail_stats = new JailStats();
+    public static Logs logs;
 }
